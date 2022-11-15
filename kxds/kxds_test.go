@@ -1231,12 +1231,15 @@ func TestReconciller(t *testing.T) {
 					),
 					testruntime.WithFilters(
 						kxdsv1alpha1.Filter{
-							Fault: &kxdsv1alpha1.FaultFilter{
-								Delay: &kxdsv1alpha1.FaultDelay{
-									Fixed: testruntime.DurationPtr(500 * time.Millisecond),
-									Percentage: &kxdsv1alpha1.Fraction{
-										Numerator:   100,
-										Denominator: "hundred",
+							Name: "test-filter",
+							FilterConfig: kxdsv1alpha1.FilterConfig{
+								Fault: &kxdsv1alpha1.FaultFilter{
+									Delay: &kxdsv1alpha1.FaultDelay{
+										Fixed: testruntime.DurationPtr(500 * time.Millisecond),
+										Percentage: &kxdsv1alpha1.Fraction{
+											Numerator:   100,
+											Denominator: "hundred",
+										},
 									},
 								},
 							},
@@ -1285,12 +1288,15 @@ func TestReconciller(t *testing.T) {
 					),
 					testruntime.WithFilters(
 						kxdsv1alpha1.Filter{
-							Fault: &kxdsv1alpha1.FaultFilter{
-								Delay: &kxdsv1alpha1.FaultDelay{
-									Header: &kxdsv1alpha1.HeaderFault{},
-									Percentage: &kxdsv1alpha1.Fraction{
-										Numerator:   100,
-										Denominator: "hundred",
+							Name: "test-filter",
+							FilterConfig: kxdsv1alpha1.FilterConfig{
+								Fault: &kxdsv1alpha1.FaultFilter{
+									Delay: &kxdsv1alpha1.FaultDelay{
+										Header: &kxdsv1alpha1.HeaderFault{},
+										Percentage: &kxdsv1alpha1.Fraction{
+											Numerator:   100,
+											Denominator: "hundred",
+										},
 									},
 								},
 							},
@@ -1346,12 +1352,15 @@ func TestReconciller(t *testing.T) {
 					),
 					testruntime.WithFilters(
 						kxdsv1alpha1.Filter{
-							Fault: &kxdsv1alpha1.FaultFilter{
-								Abort: &kxdsv1alpha1.FaultAbort{
-									HTTPStatus: testruntime.Ptr(uint32(404)),
-									Percentage: &kxdsv1alpha1.Fraction{
-										Numerator:   100,
-										Denominator: "hundred",
+							Name: "test-filter",
+							FilterConfig: kxdsv1alpha1.FilterConfig{
+								Fault: &kxdsv1alpha1.FaultFilter{
+									Abort: &kxdsv1alpha1.FaultAbort{
+										HTTPStatus: testruntime.Ptr(uint32(404)),
+										Percentage: &kxdsv1alpha1.Fraction{
+											Numerator:   100,
+											Denominator: "hundred",
+										},
 									},
 								},
 							},
@@ -1397,12 +1406,15 @@ func TestReconciller(t *testing.T) {
 					),
 					testruntime.WithFilters(
 						kxdsv1alpha1.Filter{
-							Fault: &kxdsv1alpha1.FaultFilter{
-								Abort: &kxdsv1alpha1.FaultAbort{
-									GRPCStatus: testruntime.Ptr(uint32(4)),
-									Percentage: &kxdsv1alpha1.Fraction{
-										Numerator:   100,
-										Denominator: "hundred",
+							Name: "test-filter",
+							FilterConfig: kxdsv1alpha1.FilterConfig{
+								Fault: &kxdsv1alpha1.FaultFilter{
+									Abort: &kxdsv1alpha1.FaultAbort{
+										GRPCStatus: testruntime.Ptr(uint32(4)),
+										Percentage: &kxdsv1alpha1.Fraction{
+											Numerator:   100,
+											Denominator: "hundred",
+										},
 									},
 								},
 							},
@@ -1448,12 +1460,15 @@ func TestReconciller(t *testing.T) {
 					),
 					testruntime.WithFilters(
 						kxdsv1alpha1.Filter{
-							Fault: &kxdsv1alpha1.FaultFilter{
-								Abort: &kxdsv1alpha1.FaultAbort{
-									Header: &kxdsv1alpha1.HeaderFault{},
-									Percentage: &kxdsv1alpha1.Fraction{
-										Numerator:   100,
-										Denominator: "hundred",
+							Name: "test-filter",
+							FilterConfig: kxdsv1alpha1.FilterConfig{
+								Fault: &kxdsv1alpha1.FaultFilter{
+									Abort: &kxdsv1alpha1.FaultAbort{
+										Header: &kxdsv1alpha1.HeaderFault{},
+										Percentage: &kxdsv1alpha1.Fraction{
+											Numerator:   100,
+											Denominator: "hundred",
+										},
 									},
 								},
 							},

@@ -3,7 +3,6 @@ package kxds
 import (
 	"errors"
 	"fmt"
-	"path"
 	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -41,27 +40,23 @@ func makeXDSService(svc kxdsv1alpha1.XDSService, k8sEndpoints map[ktypes.Namespa
 	var (
 		err error
 
-		resourcePrefix  = "kxds" + "." + svc.Name + "." + svc.Namespace + "."
-		listenerName    = path.Join(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
-		routeConfigName = resourcePrefix + "routeconfig"
-
 		xdsSvc = xdsService{
 			clusters: make([]types.Resource, len(svc.Spec.Clusters)),
 		}
 	)
 
-	xdsSvc.listener, err = makeListener(listenerName, svc, routeConfigName)
+	xdsSvc.listener, err = makeListener(svc)
 	if err != nil {
 		return xdsSvc, err
 	}
 
-	xdsSvc.routeConfig, err = makeRouteConfig(resourcePrefix, routeConfigName, listenerName, svc.Spec.Routes)
+	xdsSvc.routeConfig, err = makeRouteConfig(svc)
 	if err != nil {
 		return xdsSvc, err
 	}
 
 	for i, clusterSpec := range svc.Spec.Clusters {
-		clusterName := resourcePrefix + clusterSpec.Name
+		clusterName := svc.ResourcePrefix() + "." + clusterSpec.Name
 
 		xdsSvc.clusters[i] = makeCluster(clusterName, clusterSpec)
 
@@ -81,7 +76,7 @@ func makeXDSService(svc kxdsv1alpha1.XDSService, k8sEndpoints map[ktypes.Namespa
 	return xdsSvc, nil
 }
 
-func makeFilters(filters []kxdsv1alpha1.Filter) ([]*hcm.HttpFilter, error) {
+func makeFilters(svc kxdsv1alpha1.XDSService) ([]*hcm.HttpFilter, error) {
 	routerFilter := &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -89,30 +84,30 @@ func makeFilters(filters []kxdsv1alpha1.Filter) ([]*hcm.HttpFilter, error) {
 		},
 	}
 
-	if len(filters) == 0 {
+	if len(svc.Spec.Filters) == 0 {
 		return []*hcm.HttpFilter{
 			routerFilter,
 		}, nil
 	}
 
-	hcmFilters := make([]*hcm.HttpFilter, len(filters)+1)
+	hcmFilters := make([]*hcm.HttpFilter, len(svc.Spec.Filters)+1)
 
-	for i, filterSpec := range filters {
+	for i, filterSpec := range svc.Spec.Filters {
 		var err error
 
-		hcmFilters[i], err = makeFilter(filterSpec)
+		hcmFilters[i], err = makeFilter(svc.ResourcePrefix(), filterSpec)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Always set the router last.
-	hcmFilters[len(filters)] = routerFilter
+	hcmFilters[len(svc.Spec.Filters)] = routerFilter
 
 	return hcmFilters, nil
 }
 
-func makeFilter(filter kxdsv1alpha1.Filter) (*hcm.HttpFilter, error) {
+func makeFilter(prefix string, filter kxdsv1alpha1.Filter) (*hcm.HttpFilter, error) {
 	switch {
 	case filter.Fault != nil:
 		faultFilter, err := makeFaultFilter(filter.Fault)
@@ -121,7 +116,7 @@ func makeFilter(filter kxdsv1alpha1.Filter) (*hcm.HttpFilter, error) {
 		}
 
 		return &hcm.HttpFilter{
-			Name: wellknown.Fault,
+			Name: prefix + ".filter." + filter.Name,
 			ConfigType: &hcm.HttpFilter_TypedConfig{
 				TypedConfig: mustAny(faultFilter),
 			},
@@ -195,8 +190,8 @@ func makeFaultFilter(f *kxdsv1alpha1.FaultFilter) (*faultv3.HTTPFault, error) {
 	return &ff, nil
 }
 
-func makeListener(listenerName string, svc kxdsv1alpha1.XDSService, routeConfigName string) (*listener.Listener, error) {
-	filters, err := makeFilters(svc.Spec.Filters)
+func makeListener(svc kxdsv1alpha1.XDSService) (*listener.Listener, error) {
+	filters, err := makeFilters(svc)
 
 	if err != nil {
 		return nil, err
@@ -208,7 +203,7 @@ func makeListener(listenerName string, svc kxdsv1alpha1.XDSService, routeConfigN
 		},
 		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 			Rds: &hcm.Rds{
-				RouteConfigName: routeConfigName,
+				RouteConfigName: svc.RouteConfigName(),
 				ConfigSource: &core.ConfigSource{
 					ResourceApiVersion:    core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{Ads: &core.AggregatedConfigSource{}},
@@ -219,17 +214,17 @@ func makeListener(listenerName string, svc kxdsv1alpha1.XDSService, routeConfigN
 	}
 
 	return &listener.Listener{
-		Name: listenerName,
+		Name: svc.ListenerName(),
 		ApiListener: &listener.ApiListener{
 			ApiListener: mustAny(httpConnManager),
 		},
 	}, nil
 }
 
-func makeRouteConfig(resourcePrefix, routeConfigName, listenerName string, routeSpecs []kxdsv1alpha1.Route) (*route.RouteConfiguration, error) {
-	routes := make([]*route.Route, len(routeSpecs))
+func makeRouteConfig(svc kxdsv1alpha1.XDSService) (*route.RouteConfiguration, error) {
+	routes := make([]*route.Route, len(svc.Spec.Routes))
 
-	for i, routeSpec := range routeSpecs {
+	for i, routeSpec := range svc.Spec.Routes {
 		match, err := makeRouteMatch(routeSpec)
 		if err != nil {
 			return nil, err
@@ -244,7 +239,7 @@ func makeRouteConfig(resourcePrefix, routeConfigName, listenerName string, route
 						GrpcTimeoutHeaderMax: makeDuration(routeSpec.GrpcTimeoutHeaderMax),
 					},
 					ClusterSpecifier: &route.RouteAction_WeightedClusters{
-						WeightedClusters: makeWeightedClusters(resourcePrefix, routeSpec),
+						WeightedClusters: makeWeightedClusters(svc.ResourcePrefix(), routeSpec),
 					},
 				},
 			},
@@ -252,12 +247,12 @@ func makeRouteConfig(resourcePrefix, routeConfigName, listenerName string, route
 	}
 
 	return &route.RouteConfiguration{
-		Name:             routeConfigName,
+		Name:             svc.RouteConfigName(),
 		ValidateClusters: &wrapperspb.BoolValue{Value: true},
 		VirtualHosts: []*route.VirtualHost{
 			{
-				Name:    resourcePrefix + "vhost",
-				Domains: []string{listenerName},
+				Name:    svc.ResourcePrefix() + "." + "vhost",
+				Domains: []string{svc.ListenerName()},
 				Routes:  routes,
 			},
 		},
@@ -387,7 +382,7 @@ func makeWeightedClusters(resourcePrefix string, routeSpec kxdsv1alpha1.Route) *
 	for i, clusterRef := range routeSpec.Clusters {
 		totalWeight += clusterRef.Weight
 		weighedClusters[i] = &route.WeightedCluster_ClusterWeight{
-			Name:   resourcePrefix + clusterRef.Name,
+			Name:   resourcePrefix + "." + clusterRef.Name,
 			Weight: wrapperspb.UInt32(clusterRef.Weight),
 		}
 	}

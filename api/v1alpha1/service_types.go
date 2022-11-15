@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"path"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -168,10 +170,17 @@ type FaultFilter struct {
 	Headers []HeaderMatcher `json:"headers,omitempty"`
 }
 
-type Filter struct {
+type FilterConfig struct {
 	// Fault Filter configuration.
 	// +optional
 	Fault *FaultFilter `json:"fault,omitempty"`
+}
+
+type Filter struct {
+	// Name of the filter.
+	Name string `json:"name,omitempty"`
+
+	FilterConfig `json:",inline"`
 }
 
 // Route allows to match an outoing request to a specific cluster, it allows to do HTTP level manipulation on the outgoing requests as well as matching.
@@ -223,6 +232,18 @@ type XDSService struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec XDSServiceSpec `json:"spec,omitempty"`
+}
+
+func (s *XDSService) ResourcePrefix() string {
+	return "kxds" + "." + s.Name + "." + s.Namespace
+}
+
+func (s *XDSService) ListenerName() string {
+	return path.Join(s.ObjectMeta.Namespace, s.ObjectMeta.Name)
+}
+
+func (s *XDSService) RouteConfigName() string {
+	return s.ResourcePrefix() + ".routeconfig"
 }
 
 //+kubebuilder:object:root=true
